@@ -1,85 +1,43 @@
-akka-kryo-serialization - kryo-based serializers for Scala and Akka
-=====================================================================
+simplified-akka-kryo-serialization - simplified version of akka-kryo-serialization
+==================================================================================
 
-This library provides custom Kryo-based serializers for Scala and Akka. It can be used for more efficient akka actor's remoting.
+*akka-kryo-serialization* is an excellent library which provides custom Kryo-based serializers for Scala and Akka.
+([akka-kryo-serialization](https://github.com/romix/akka-kryo-serialization))
 
-It can also be used for a general purpose and very efficient Kryo-based serialization of such Scala types like Option, Tuple, Enumeration and most of Scala's collection types.   
+However, when we used it, we found that the features are too many for us. It mades our code redundant and hard to maintain.
+Which is most important is that the key feature we need in our project, implicit class registration, is not well
+supported in *akka-kryo-serialization*, because the `registerImplicit` function is overrided with strange behavior.
 
-Features
---------
+So we decided to simplify the code of *akka-kryo-serialization* to be a very simplified Akka Kryo extension -
+*simplified-akka-kryo-serialization*.
 
-*   It is more efficient than Java serialization - both in size and speed 
-*   Does not require any additional build steps like compiling proto files, when using protobuf serialization
-*   Almost any Scala and Java class can be serialized using it without any additional configuration or code changes
-*   Efficient serialization of such Scala types like Option, Tuple, Enumeration, most of Scala's collection types
-*   Greatly improves performance of Akka's remoting
-*   Apache 2.0 license
+Features We Keep
+----------------
+*   Kryo extension for Akka.
+*   Kryo configured in Akka ActorSystem configuration.
+*   Kryo serialization for Akka ActorRef.
 
+Features We Remove
+------------------
+*   Scala types serialization.
+*   Post serialization transformations.
+*   Different `IdStrategies`. We only need to identify whether implicit class registration is enabled.
+*   Configuration `use-manifests`. Because `includeManifests` in Akka Serializer interface is almost useless for Kryo serialization. We just set it to *false* and remove `use-manifests` in configuration to make it less confusing.
 
-How to use this library in your project
-----------------------------------------
+Features We Add
+---------------
+*   Well supported implicit class registration.
+*   Configuration `max-buffer-size`. Because we may transfer very big objects in our project, so we add `max-buffer-size` to make it configurable.
 
-To use this serializer, you need to do two things:
-*   Include a dependency on this library into your project:
+Build Guide
+-----------
+Build command:
 
-	`libraryDependencies += "com.github.romix.akka" % "akka-kryo-serialization" % "0.3.0"`
-    
-*   Add some new elements to your Akka configuration file, e.g. `application.conf`
+    `sbt compile package`
 
-Which Maven repository contains this library?
----------------------------------------------
-
-You can find the JARs on Sonatype Maven repository.
-
-Please use the following fragment in your pom.xml:
-
-
-To use the official release of akka-kryo-serialization, please use the following snippet in your pom.xml
-
-    <repository>
-        <snapshots>
-            <enabled>false</enabled>
-        </snapshots>
-        <id>central</id>
-        <name>Maven Central Repository</name>
-        <url>http://repo1.maven.org/maven2</url>
-    </repository>
-    
-    <dependency>
-        <groupId>com.github.romix.akka</groupId>
-        <artifactId>akka-kryo-serialization</artifactId>
-        <version>0.3.0</version>
-    </dependency>
-
-If you want to test the latest snapshot of this library, please use the following snippet in your pom.xml
-
-    <repository>
-       <id>sonatype-snapshots</id>
-       <name>sonatype snapshots repo</name>
-       <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </repository>
-    
-    <dependency>
-       <groupId>com.github.romix.akka</groupId>
-       <artifactId>akka-kryo-serialization</artifactId>
-        <version>0.4.0-SNAPSHOT</version>
-    </dependency>
-
-
-How do I build this library on my own?
---------------------------------------------
-If you wish to build the library on your own, you need to check out the project from Github and do
-    `sbt compile publish-local`
-
-If you wish to use it within an OSGi environment, you can add OSGi headers to the build by executing:
-    `sbt osgi-bundle publish-local`
-
-Note that the OSGi build uses the sbt-osgi plugin, which may not be available from Maven Central or the
-Typesafe repo, so it may require a local build as well. sbt-osgi can be found at 
-https://github.com/sbt/sbt-osgi.
-
-Configuration of akka-kryo-serialization
-----------------------------------------------
+Configuration of simplified-akka-kryo-serialization
+---------------------------------------------------
+The configuration of *simplified-akka-kryo-serialization* only has a little differences with *akka-kryo-serialization*.
 
 The following options are available for configuring this serializer:
 
@@ -88,89 +46,64 @@ The following options are available for configuring this serializer:
 
 *   You need to add a new `kryo` section to the akka.actor part of configuration  
 
-		kryo  {  
-			# Possibles values for type are: graph or nograph  
-			# graph supports serialization of object graphs with shared nodes  
-			# and cyclic references, but this comes at the expense of a small overhead  
-			# nograph does not support object grpahs with shared nodes, but is usually faster   
-			type = "graph"  
-			
-			  
-			# Possible values for idstrategy are:  
-			# default, explicit, incremental  
-			#  
-			# default - slowest and produces bigger serialized representation. Contains fully-  
-			# qualified class names (FQCNs) for each class  
-			#  
-			# explicit - fast and produces compact serialized representation. Requires that all  
-			# classes that will be serialized are pre-registered using the "mappings" and "classes"
-			# sections. To guarantee that both sender and receiver use the same numeric ids for the same  
-			# classes it is advised to provide exactly the same entries in the "mappings" section   
-			#  
-			# incremental - fast and produces compact serialized representation. Support optional  
-			# pre-registering of classes using the "mappings" and "classes" sections. If class is  
-			# not pre-registered, it will be registered dynamically by picking a next available id  
-			# To guarantee that both sender and receiver use the same numeric ids for the same   
-			# classes it is advised to pre-register them using at least the "classes" section   
-			  
-			idstrategy = "incremental"  
-			  
-			# Define a default size for serializer pool
-			# Try to define the size to be at least as big as the max possible number
-			# of threads that may be used for serialization, i.e. max number
-			# of threads allowed for the scheduler
-			serializer-pool-size = 16
-			
-			# Define a default size for byte buffers used during serialization   
-			buffer-size = 4096  
+		kryo  {
+		    # Whether Kryo should support object graph serialization
+            # true: Kryo supports serialization of object graphs with shared nodes
+            # and cyclic references, but this comes at the expense of a small overhead
+            # false: Kryo does not support object grpahs with shared nodes, but is usually faster
+            reference-enabled = true
 
-			# If set, akka uses manifests to put a class name
-			# of the top-level object into each message
-			use-manifests = false
-			
-			# Log implicitly registered classes. Useful, if you want to know all classes
-			# which are serialized. You can then use this information in the mappings and/or 
-			# classes sections
-			implicit-registration-logging = false 
-			  
-			# If enabled, Kryo logs a lot of information about serialization process.
-			# Useful for debugging and lowl-level tweaking
-			kryo-trace = false 
-			  
-			# If proviced, Kryo uses the class specified by a fully qualified class name
-			# to perform a custom initialization of Kryo instances in addition to what
-			# is done automatically based on the config file.
-			kryo-custom-serializer-init = "CustomKryoSerializerInitFQCN"
-			  
-			# Define mappings from a fully qualified class name to a numeric id.  
-			# Smaller ids lead to smaller sizes of serialized representations.  
-			#  
-			# This section is mandatory for idstartegy=explciit  
-			# This section is optional  for idstartegy=incremental  
-			# This section is ignored   for idstartegy=default  
-			#   
-			# The smallest possible id should start at 20 (or even higher), because
-			# ids below it are used by Kryo internally e.g. for built-in Java and 
-			# Scala types   
-			mappings {  
-				"package1.name1.className1" = 20,  
-				"package2.name2.className2" = 21  
-			}  
-			  
-			# Define a set of fully qualified class names for   
-			# classes to be used for serialization.
-			# The ids for those classes will be assigned automatically,
-			# but respecting the order of declaration in this section  
-			#  
-			# This section is optional  for idstartegy=incremental  
-			# This section is ignored   for idstartegy=default  
-			# This section is optional  for idstartegy=explicit  
-			classes = [  
-				"package3.name3.className3",  
-				"package4.name4.className4"  
-			]  
+            # Whether Kryo should support implicit class registration
+            # true: Kryo supports implicit class registration. Class can be serialized and deserialized
+            # without pre-registration but with lower efficiency.
+            # false: Kryo does not support implicit class registration. It will throw an exception when
+            # an unregistered class needs to be serialized or deserialized.
+            implicit-registration-enabled = true
+
+            # Log implicitly registered classes. Useful, if you want to know all classes
+            # which are serialized
+            implicit-registration-logging = false
+
+            # Define a default size for byte buffers used during serialization
+            buffer-size = 4096
+
+            # Define max size for byte buffers used during serialization
+            # 1073741824 == 1G
+            max-buffer-size = 1073741824
+
+            # Define a default size for serializer pool
+            serializer-pool-size = 16
+
+            # If enabled, Kryo logs a lot of information about serialization process.
+            # Useful for debugging and lowl-level tweaking
+            kryo-trace = false
+
+            # If enabled, Kryo uses internally a map detecting shared nodes.
+            # This is a preferred mode for big object graphs with a lot of nodes.
+            # For small object graphs (e.g. below 10 nodes) set it to false for
+            # better performance.
+            kryo-reference-map = true
+
+            # Define mappings from a fully qualified class name to a numeric id.
+            # Smaller ids lead to smaller sizes of serialized representations.
+            # The smallest possible id should start at 9 (or even higher), because
+            # ids below it are used by Kryo internally.
+            # This section is optional.
+            mappings {
+                # fully.qualified.classname1 = id1
+                # fully.qualified.classname2 = id2
+            }
+
+            # Define a set of fully qualified class names for
+            # classes to be used for serialization.
+            # The ids for those classes will be assigned automatically,
+            # but respecting the order of declaration in this section.
+            # This section is optional.
+            classes = [
+                # fully.qualified.classname1
+                # fully.qualified.classname2
+            ]
 		}
-
 
 *   You should declare in the Akka `serializers` section a new kind of serializer:  
 
@@ -180,83 +113,11 @@ The following options are available for configuring this serializer:
 			kryo = "com.romix.akka.serialization.kryo.KryoSerializer"  
 		}    
      
-*    As usual, you should declare in the Akka `serialization-bindings` section which classes should use kryo serialization
+*    As usual, you should declare in the Akka `serialization-bindings` section which classes should use kryo serialization. One thing to keep in mind is that classes that you register in this section are supposed to be *TOP-LEVEL* classes that you wish to serialize. I.e. this is a class of object that you send over the wire. It should not be a class that is used internally by a top-level class. The reason for it: Akka sees only an object of a top-level class to be sent. It picks a matching serializer for this top-level class, e.g. a default Java serializer, and then it serializes the whole object graph with this object as a root using this Java serializer.
 
-How do you create mappings or classes sections with proper content? 
--------------------------------------------------------------------
+Other Usage Information
+-----------------------
+*   How do you create mappings or classes sections with proper content?
+*   How to create a custom initializer for Kryo?
 
-One of the easiest ways to understand which classes you need to register in those sections is to
-leave both sections first empty and then set 			
-        `implicit-registration-logging = true` 
-  
-As a result, you'll eventually see log messages about implicit registration of some classes. By default,
-they will receive some random default ids. Once you see the names of implicitly registered classes,
-you can copy them into your mappings or classes sections and assign an id of your choice to each of those
-classes.
-
-You may need to repeat the process several times until you see no further log messages about implicitly
-registered classes.
-
-Another useful trick is to provide your own custom initializer for Kryo (see below) and inside it you register 
-classes of a few objects that are typically used by your application, for example:
-
-			kryo.register(myObj1.getClass);
-			kryo.register(myObj2.getClass);    
-    
-Obviously, you can also explicitly assign IDs to your classes in the initializer, if you wish:
-
-			kryo.register(myObj3.getClass, 123);
-
-If you use this library as an alternative serialization method when sending messages between actors, it is extremely
-important that the order of class registration and the assigned class IDs are the same for senders and for receivers!
-
-
-How to create a custom initializer for Kryo
--------------------------------------------------------------------
-
-Sometimes you need to customize Kryo beyond what is possible by means of the configuration parameters in the config file.
-Typically, you may want to register very specific serializers for certain classes or tweak some settings of the Kryo instance.
-This is possible by providing the following optional parameter in the config file:
-			`kryo-custom-serializer-init = "CustomKryoSerializerInitFQCN"`
-
-Where `CustomKryoSerializerInitFQCN` is a fully qualified class name of your custom serializer class. And custom serializer class can be
-just any class with a default no-arg constructor and a method called `customize`, which takes one parameter of type Kryo and has a void 
-return type, i.e.
-
-			public void customize(Kryo kryo); // for Java
-			def customize(kryo:Kryo):Unit // for Scala
-
-An example of such a custom Kryo serializer initialization class could be something like this:
-
-			class KryoInit {
-				def customize(kryo: Kryo): Unit  = {
-					kryo.register(classOf[DateTime], new JodaDateTimeSerializer)
-					kryo.setReferences(false)
-				}
-			}    
-    
-Usage as a general purpose Scala serialization library 
--------------------------------------------------------------------
-
-Simply add this library to your classpath. It does not have any external dependencies besides Kryo.
-All serializers for Scala classes can be found in the package `com.romix.scala.serialization.kryo`
-
-If you want to use any of those serializers in your code, add some of the following lines to your code as required:
-
-			// Serialization of Scala enumerations
-			kryo.addDefaultSerializer(classOf[scala.Enumeration#Value], classOf[EnumerationSerializer])
-			kryo.register(Class.forName("scala.Enumeration$Val"))
-			kryo.register(classOf[scala.Enumeration#Value])
-
-			// Serialization of Scala maps like Trees, etc
-			kryo.addDefaultSerializer(classOf[scala.collection.Map[_,_]], classOf[ScalaMapSerializer])
-			kryo.addDefaultSerializer(classOf[scala.collection.generic.MapFactory[scala.collection.Map]], classOf[ScalaMapSerializer])
-
-			// Serialization of Scala sets
-			kryo.addDefaultSerializer(classOf[scala.collection.Set[_]], classOf[ScalaSetSerializer])
-			kryo.addDefaultSerializer(classOf[scala.collection.generic.SetFactory[scala.collection.Set]], classOf[ScalaSetSerializer])
-
-			// Serialization of all Traversable Scala collections like Lists, Vectors, etc
-			kryo.addDefaultSerializer(classOf[scala.collection.Traversable[_]], classOf[ScalaCollectionSerializer])
-      
- 
+See [akka-kryo-serialization](https://github.com/romix/akka-kryo-serialization)
